@@ -221,4 +221,4 @@ closeAll() {
 !F12:: focusOn(22)
 !+F12:: runGui(22, "F12")
 
-Escape::closeAll()
+~Escape::closeAll()
