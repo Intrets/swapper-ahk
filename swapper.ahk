@@ -150,9 +150,7 @@ focusOn(index) {
         exe := WinGetProcessName("A")
 
         data.currentIndex := Mod(data.currentIndex - 1, ids.Length) + 1
-        same := exe == target && data.currentIndex >= 1 && data.currentIndex <= ids.Length && ids[data.currentIndex
-            ] ==
-            currentId
+        same := exe == target && data.currentIndex >= 1 && data.currentIndex <= ids.Length && ids[data.currentIndex] == currentId
 
         if same {
             data.currentIndex := Mod(data.currentIndex, ids.Length) + 1
@@ -162,8 +160,8 @@ focusOn(index) {
             id := ids[data.currentIndex]
             title := WinGetTitle(id)
 
-            if title != "" && exe != "explorer.exe" && title != "Program Manager" {
-                if currentId != id && currentFocus != { type: "single", id: id } {
+            if title != "" && !(exe == "explorer.exe" && title == "Program Manager") {
+                if currentId != id || currentFocus != { type: "single", id: id } {
                     lastFocus := currentFocus
                     currentFocus := { type: "single", id: id }
 
@@ -256,6 +254,13 @@ maximizeCurrent() {
     }
 }
 
+restoreCurrent() {
+    id := WinGetID("A")
+    try {
+        WinRestore(id)
+    }
+}
+
 !`:: swapToLast()
 
 ; --------
@@ -331,3 +336,4 @@ maximizeCurrent() {
 ~Escape:: closeAll()
 
 !m:: maximizeCurrent()
+!+m:: restoreCurrent()
