@@ -38,7 +38,7 @@ createGui(name) {
 
     list.OnEvent("DoubleClick", doubleClickList)
 
-    return { list: list, gui: MyGui }
+    return { list: list, gui: MyGui, data: { currentIndex: -1, currentId: -1 } }
 }
 
 saveList(f, list) {
@@ -95,36 +95,92 @@ loop 22 {
 
 loadState()
 
-lastFocus := -1
+currentFocus := []
+lastFocus := []
 
 swapToLast() {
     global lastFocus
+    global currentFocus
 
-    if (lastFocus != -1) {
-        newLastFocus := WinGetID("A")
-        WinActivate(lastFocus)
-        lastFocus := newLastFocus
+    for id in lastFocus {
+        WinActivate(id)
     }
+
+    temp := currentFocus
+    currentFocus := lastFocus
+    lastFocus := temp
+}
+
+has(array, item) {
+    if !IsObject(item) || array.Length == 0 {
+        return 0
+    }
+
+    for i, value in array {
+        if value == item {
+            return i
+        }
+    }
+
+    return 0
 }
 
 focusOn(index) {
+    global currentFocus
     global lastFocus
+    global guis
 
     list := guis[index].list
+    data := guis[index].data
+
+    target := []
 
     loop list.GetCount() {
         i := A_Index
         target := list.GetText(i)
         ids := WinGetList("ahk_exe " target)
-        for handle in ids {
-            title := WinGetTitle(handle)
-            if title != "" {
-                newLastFocus := WinGetID("A")
-                if newLastFocus != lastFocus {
-                    lastFocus := newLastFocus
+
+        if ids.Length == 0 {
+            continue
+        }
+
+        if list.GetCount() == 1 {
+            currentId := WinGetID("A")
+            exe := WinGetProcessName("A")
+
+            data.currentIndex := Mod(data.currentIndex - 1, ids.Length) + 1
+            same := exe == target && data.currentIndex >= 1 && data.currentIndex <= ids.Length && ids[data.currentIndex] ==
+                currentId
+
+            if same {
+                if data.currentIndex == -1 {
+                    data.currentIndex := 0
                 }
-                WinActivate(handle)
+                data.currentIndex := Mod(data.currentIndex, ids.Length) + 1
             }
+
+            loop ids.Length {
+                id := ids[data.currentIndex]
+                title := WinGetTitle(id)
+
+                if title == "" {
+                    continue
+                }
+                else {
+                    if currentId != id && currentFocus != [id] {
+                        lastFocus := currentFocus
+                        currentFocus := [id]
+
+                        data.currentId := id
+                        WinActivate(id)
+                    }
+                    break
+                }
+
+                data.currentIndex := Mod(data.currentIndex, ids.Length) + 1
+            }
+        }
+        else {
         }
     }
 }
@@ -221,4 +277,4 @@ closeAll() {
 !F12:: focusOn(22)
 !+F12:: runGui(22, "F12")
 
-~Escape::closeAll()
+~Escape:: closeAll()
