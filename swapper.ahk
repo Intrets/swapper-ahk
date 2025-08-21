@@ -38,7 +38,7 @@ createGui(name) {
 
     list.OnEvent("DoubleClick", doubleClickList)
 
-    return { list: list, gui: MyGui, data: { currentIndex: -1, currentId: -1 } }
+    return { list: list, gui: MyGui, data: { currentIndex: 1, currentId: -1 } }
 }
 
 saveList(f, list) {
@@ -95,15 +95,24 @@ loop 22 {
 
 loadState()
 
-currentFocus := []
-lastFocus := []
+currentFocus := { type: "nothing" }
+lastFocus := { type: "nothing" }
 
 swapToLast() {
     global lastFocus
     global currentFocus
 
-    for id in lastFocus {
-        WinActivate(id)
+    if lastFocus.type == "single" {
+        try {
+            WinActivate(lastFocus.id)
+        }
+    }
+    else if lastFocus.type == "group" {
+        for id in lastFocus.ids {
+            try {
+                WinActivate(id)
+            }
+        }
     }
 
     temp := currentFocus
@@ -133,54 +142,89 @@ focusOn(index) {
     list := guis[index].list
     data := guis[index].data
 
-    target := []
-
-    loop list.GetCount() {
-        i := A_Index
-        target := list.GetText(i)
+    if list.GetCount() == 1 {
+        target := list.GetText(1)
         ids := WinGetList("ahk_exe " target)
 
-        if ids.Length == 0 {
-            continue
+        currentId := WinGetID("A")
+        exe := WinGetProcessName("A")
+
+        data.currentIndex := Mod(data.currentIndex - 1, ids.Length) + 1
+        same := exe == target && data.currentIndex >= 1 && data.currentIndex <= ids.Length && ids[data.currentIndex
+            ] ==
+            currentId
+
+        if same {
+            data.currentIndex := Mod(data.currentIndex, ids.Length) + 1
         }
 
-        if list.GetCount() == 1 {
-            currentId := WinGetID("A")
-            exe := WinGetProcessName("A")
+        loop ids.Length {
+            id := ids[data.currentIndex]
+            title := WinGetTitle(id)
 
-            data.currentIndex := Mod(data.currentIndex - 1, ids.Length) + 1
-            same := exe == target && data.currentIndex >= 1 && data.currentIndex <= ids.Length && ids[data.currentIndex] ==
-                currentId
+            if title != "" && exe != "explorer.exe" && title != "Program Manager" {
+                if currentId != id && currentFocus != { type: "single", id: id } {
+                    lastFocus := currentFocus
+                    currentFocus := { type: "single", id: id }
 
-            if same {
-                if data.currentIndex == -1 {
-                    data.currentIndex := 0
+                    data.currentId := id
+                    try {
+                        WinActivate(id)
+                        break
+                    }
                 }
-                data.currentIndex := Mod(data.currentIndex, ids.Length) + 1
+                else {
+                    break
+                }
             }
 
-            loop ids.Length {
-                id := ids[data.currentIndex]
-                title := WinGetTitle(id)
+            data.currentIndex := Mod(data.currentIndex, ids.Length) + 1
+        }
+    }
+    else {
+        currentId := WinGetID("A")
 
-                if title == "" {
+        hasLast(ids, id) {
+            if ids.Length == 0 {
+                return False
+            }
+            else {
+                return ids[ids.Length] == id
+            }
+        }
+
+        if currentFocus.type != "group" || currentFocus.index != index || !hasLast(currentFocus.ids, currentId) {
+            previousLastFocus := lastFocus
+            lastFocus := currentFocus
+
+            currentFocus := { type: "group", index: index, ids: [] }
+
+            loop list.GetCount() {
+                i := A_Index
+                target := list.GetText(i)
+                ids := WinGetList("ahk_exe " target)
+
+                if ids.Length == 0 {
                     continue
                 }
                 else {
-                    if currentId != id && currentFocus != [id] {
-                        lastFocus := currentFocus
-                        currentFocus := [id]
-
-                        data.currentId := id
-                        WinActivate(id)
+                    for id in ids {
+                        title := WinGetTitle(id)
+                        if title != "" {
+                            currentFocus.ids.Push(id)
+                            try {
+                                WinActivate(id)
+                                break
+                            }
+                        }
                     }
-                    break
                 }
-
-                data.currentIndex := Mod(data.currentIndex, ids.Length) + 1
             }
-        }
-        else {
+
+            if currentFocus.ids.Length == 0 {
+                currentFocus := lastFocus
+                lastFocus := previousLastFocus
+            }
         }
     }
 }
@@ -202,6 +246,13 @@ closeAll() {
     loop guis.Length {
         gui := guis[A_Index].gui
         gui.Hide()
+    }
+}
+
+maximizeCurrent() {
+    id := WinGetID("A")
+    try {
+        WinMaximize(id)
     }
 }
 
@@ -278,3 +329,5 @@ closeAll() {
 !+F12:: runGui(22, "F12")
 
 ~Escape:: closeAll()
+
+!m:: maximizeCurrent()
